@@ -12,7 +12,7 @@
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:var(--bg); color:var(--text); display:flex; flex-direction:column;}
+    body{margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:var(--bg); color:#111827; display:flex; flex-direction:column;}
     header{position:sticky; top:0; z-index:20; background:rgba(255,255,255,.96); border-bottom:1px solid var(--border); backdrop-filter: blur(6px);}
     .head{max-width:1200px; margin:0 auto; padding:.8rem 1rem; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:.75rem;}
     .iconbtn{cursor:pointer; border:1px solid var(--border); background:#fff; border-radius:10px; padding:.5rem .7rem; font-weight:700; box-shadow:var(--shadow);}
@@ -43,7 +43,6 @@
     .actions{display:flex; gap:.5rem; align-items:center; margin:.8rem;}
     .add{flex:1; border-radius:12px; padding:.6rem 1rem; font-weight:800; cursor:pointer; border:1px solid var(--border); background:#111827; color:#fff;}
     .add[disabled]{opacity:.6; cursor:not-allowed; background:#6b7280;}
-    .add.incart{ background:var(--accent); }
     .rmv{width:44px; height:44px; border-radius:12px; border:1px solid var(--border); background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center;}
     .rmv[disabled]{opacity:.4; cursor:not-allowed;}
     .footer{position:sticky; bottom:0; z-index:20; background:rgba(255,255,255,.96); border-top:1px solid var(--border); backdrop-filter: blur(6px);}
@@ -110,7 +109,7 @@
         <button id="paypalBtn" class="btn" style="background:#111827;">PayPal</button>
         <button id="cashBtn" class="btn" style="background:var(--accent);">💵 Quick Cash</button>
       </div>
-      <div class="small" style="margin-top:.6rem;">Venmo/PayPal usernames are set in Manage. No sales tax.</div>
+      <div class="small" style="margin-top:.6rem;">Venmo/PayPal QR images are set in Manage. No sales tax.</div>
     </div>
   </dialog>
 
@@ -118,6 +117,7 @@
     // Storage keys
     const SETTINGS_KEY = 'mp_settings_v1';
     const RUNTIME_KEY  = 'mp_runtime_v1';
+    const SESSION_ID   = crypto.randomUUID(); // tag sales in this page session
 
     // Constants
     const SIZE_KEYS = ['S','M','L','XL','2XL','NA'];
@@ -139,7 +139,7 @@
     ];
 
     // Defaults
-    const defaultSettings = { outletName:'', headerLogoText:'MERCH LOGO', headerLogoImage:'', venmoUser:'', paypalUser:'' };
+    const defaultSettings = { outletName:'', headerLogoText:'MERCH LOGO', headerLogoImage:'', venmoUser:'', paypalUser:'', venmoQR:'', paypalQR:'' };
     const defaultProducts = [
       {id:'sku-shirt',  name:'T-Shirt',      category:'Shirt/Sweatshirt', price:25, img:'', sizes:{S:5,M:5,L:5,XL:3,'2XL':2,NA:0}},
       {id:'sku-hoodie', name:'Hoodie',       category:'Shirt/Sweatshirt', price:55, img:'', sizes:{S:0,M:4,L:4,XL:2,'2XL':2,NA:0}},
@@ -198,9 +198,9 @@
 
     // CSV & reset
     document.getElementById('downloadCsv').addEventListener('click', ()=>{
-      const headers = ['timestamp','product_id','product_name','category','size','unit_price','qty','remaining_after_size','payment_method'];
+      const headers = ['timestamp','batch_id','product_id','product_name','category','size','unit_price','qty','remaining_after_size','payment_method','customer_name','customer_email'];
       const rows = runtime.salesLog.map(s=>[
-        new Date(s.time).toLocaleString(), s.productId, s.name, s.category||'', s.size||'NA', s.price, s.qty, s.remainingAfterSize, s.payment||''
+        new Date(s.time).toLocaleString(), s.batchId||'', s.productId, s.name, s.category||'', s.size||'NA', s.price, s.qty, s.remainingAfterSize, s.payment||'', s.customerName||'', s.customerEmail||''
       ]);
       const esc = (x)=> { const str = (x??'').toString(); return str.includes(',') ? '"'+str.replaceAll('"','""')+'"' : str; };
       const csv = [headers.join(','), ...rows.map(r=> r.map(esc).join(','))].join('\n');
@@ -316,7 +316,11 @@
           p.sizes[size] = available - want;
           const existing = cart.find(ci=>ci.productId===p.id && ci.size===size);
           if(existing) existing.qty += want; else cart.push({productId:p.id, name:p.name, price:p.price, size, qty:want});
-          runtime.salesLog.push({time:new Date().toISOString(), productId:p.id, name:p.name, category:p.category, size, price:p.price, qty:want, remainingAfterSize:p.sizes[size], payment:''});
+          runtime.salesLog.push({
+            time:new Date().toISOString(), sessionId: SESSION_ID,
+            productId:p.id, name:p.name, category:p.category, size, price:p.price,
+            qty:want, remainingAfterSize:p.sizes[size], payment:''
+          });
           saveRuntime();
 
           refreshSizeLabels();
@@ -327,7 +331,7 @@
           syncCartSummary();
         };
 
-        // NEW: quick-remove current size from cart
+        // quick-remove current size from cart
         rmv.onclick = ()=>{
           const size = currentSize();
           const line = inCartFor(p.id, size);
@@ -407,7 +411,7 @@
       if(delta>0){
         if((prod.sizes[size]||0)>0){
           prod.sizes[size]-=1; line.qty+=1;
-          runtime.salesLog.push({time:new Date().toISOString(), productId:prod.id, name:prod.name, category:prod.category, size, price:prod.price, qty:1, remainingAfterSize:prod.sizes[size], payment:''});
+          runtime.salesLog.push({time:new Date().toISOString(), sessionId: SESSION_ID, productId:prod.id, name:prod.name, category:prod.category, size, price:prod.price, qty:1, remainingAfterSize:prod.sizes[size], payment:''});
         }
       } else {
         if(line.qty>1){ line.qty-=1; prod.sizes[size]+=1; }
@@ -433,30 +437,32 @@
       saveRuntime(); buildGrid(); syncCartSummary();
     }
 
-    // Checkout deep links
-    document.getElementById('venmoBtn').addEventListener('click', ()=> checkout('venmo'));
-    document.getElementById('paypalBtn').addEventListener('click', ()=> checkout('paypal'));
-    document.getElementById('cashBtn').addEventListener('click', ()=> checkout('cash'));
-    function checkout(method){
+    // Checkout → open QR window (Venmo/PayPal)
+    document.getElementById('venmoBtn').addEventListener('click', ()=> openQR('venmo'));
+    document.getElementById('paypalBtn').addEventListener('click', ()=> openQR('paypal'));
+    document.getElementById('cashBtn').addEventListener('click', ()=> quickCash());
+
+    function openQR(method){
       const total = cart.reduce((a,c)=>a+c.price*c.qty,0);
-      if(total<=0) return;
-      runtime.salesLog = runtime.salesLog.map(s=> ({...s, payment: s.payment || method}));
+      if(total<=0){ alert('Cart is empty'); return; }
+      const batchId = crypto.randomUUID();
+      // tag just this session’s unpaid lines with the batch id
+      runtime.salesLog = runtime.salesLog.map(s => (s.sessionId===SESSION_ID && !s.payment) ? {...s, batchId} : s);
       saveRuntime();
-      const amount = total.toFixed(2);
-      const note = encodeURIComponent(`${settings.outletName || 'Merch'} ${new Date().toLocaleDateString()}`);
-      let href = '';
-      if(method==='venmo'){
-        const user = (settings.venmoUser || '').trim();
-        href = user ? `venmo://pay?txn=pay&recipients=${encodeURIComponent(user)}&amount=${encodeURIComponent(amount)}&note=${note}`
-                    : `venmo://pay?txn=pay&amount=${encodeURIComponent(amount)}&note=${note}`;
-      } else if(method==='paypal'){
-        const user = (settings.paypalUser || 'YOURPAYPALUSERNAME').trim();
-        href = `https://www.paypal.me/${encodeURIComponent(user)}/${encodeURIComponent(amount)}`;
-      } else if(method==='cash'){
-        cart = []; saveRuntime(); buildGrid(); syncCartSummary(); openCart(); alert('Quick Cash recorded.'); return;
-      }
-      const a = document.createElement('a'); a.href = href; a.rel='noopener'; a.style.display='none'; document.body.appendChild(a); a.click(); a.remove();
+      const url = `qr.html?method=${encodeURIComponent(method)}&amount=${encodeURIComponent(total.toFixed(2))}&batch=${encodeURIComponent(batchId)}`;
+      window.open(url, '_blank'); // open QR window
+      // keep cart here so you can tweak if needed; you’ll clear it after payment if you want
+    }
+
+    function quickCash(){
+      const total = cart.reduce((a,c)=>a+c.price*c.qty,0);
+      if(total<=0){ alert('Cart is empty'); return; }
+      // mark this session’s unpaid lines as CASH immediately
+      runtime.salesLog = runtime.salesLog.map(s => (s.sessionId===SESSION_ID && !s.payment) ? {...s, payment:'cash'} : s);
+      saveRuntime();
+      // clear cart
       cart = []; saveRuntime(); buildGrid(); syncCartSummary(); openCart();
+      alert('Quick Cash recorded.');
     }
 
     // Init

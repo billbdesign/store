@@ -12,7 +12,7 @@
     main{max-width:1100px; margin:0 auto; padding:1rem;}
     .card{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:1rem; margin:.8rem 0; box-shadow:0 8px 30px rgba(16,24,40,.08);}
     input,select{padding:.5rem .6rem; border-radius:8px; border:1px solid var(--border); background:#ffffff; color:var(--text); width:100%;}
-    button{cursor:pointer; border:0; border-radius:10px; padding:.45rem .75rem; font-weight:700; background:var(--brand); color:#fff; margin-right:.4rem;}
+    button{cursor:pointer; border:0; border-radius:10px; padding:.6rem .9rem; font-weight:700; background:var(--brand); color:#fff; margin-right:.4rem;}
     table{width:100%; border-collapse:collapse; background:#fff;}
     th,td{border-bottom:1px solid var(--border); padding:.5rem; text-align:left; vertical-align:top;}
     .row{display:flex; gap:.6rem; flex-wrap:wrap; align-items:center;}
@@ -32,6 +32,7 @@
     .img-cell .ghost{margin-right:0;}
     .btn-clear{ background:#fff; border:1px solid var(--border); color:#374151; }
     .btn-clear:hover{ background:#f3f4f6; }
+    .qr{ width:96px; height:96px; border-radius:10px; background:#eef2f7 center/cover no-repeat; border:1px solid var(--border); }
   </style>
 </head>
 <body>
@@ -40,21 +41,61 @@
     <a class="back" href="index.html" aria-label="Back to Register">← Back to Register</a>
   </header>
   <main>
+    <!-- Header, Payments & QR -->
     <div class="card">
       <h3>Header & Payments</h3>
       <div class="row" style="margin-bottom:.5rem;">
-        <label style="flex:1 1 240px">Header Logo Text<input id="logoText" placeholder="MERCH LOGO"/></label>
-        <label style="flex:1 1 320px">Header Logo Image URL<input id="logoImg" placeholder="https://... (optional; overrides text)"/></label>
+        <label style="flex:1 1 240px">Header Logo Text
+          <input id="logoText" placeholder="MERCH LOGO"/>
+        </label>
+        <label style="flex:1 1 320px">Header Logo Image URL
+          <input id="logoImg" placeholder="https://... (optional; overrides text)"/>
+        </label>
       </div>
       <div class="row">
         <label style="flex:1 1 220px">Outlet Name<input id="outlet" /></label>
-        <label style="flex:1 1 220px">Venmo User<input id="venmo" placeholder="your-venmo" /></label>
+        <label style="flex:1 1 220px">Venmo Username<input id="venmo" placeholder="your-venmo" /></label>
         <label style="flex:1 1 220px">PayPal.me User<input id="paypal" placeholder="yourpaypal" /></label>
         <button id="saveSettings">Save Settings</button>
       </div>
-      <div class="muted">If an Image URL is set, it shows instead of the text in the register header.</div>
+      <div class="muted" style="margin:.4rem 0 1rem;">If an Image URL is set, it shows instead of the text in the register header.</div>
+
+      <h4>QR Codes for Checkout</h4>
+      <div class="row" style="align-items:flex-start;">
+        <div style="flex:1 1 320px;">
+          <div class="row" style="align-items:center; gap:.6rem;">
+            <div id="venmoQRPrev" class="qr"></div>
+            <div>
+              <label>Venmo QR Image URL<input id="venmoQR" placeholder="https://... or data URL" /></label>
+              <div class="row" style="margin-top:.3rem;">
+                <label class="ghost" style="padding:.35rem .6rem; border-radius:8px; cursor:pointer; margin:0;">
+                  Upload<input id="venmoQRFile" type="file" accept="image/*" style="display:none">
+                </label>
+                <button id="venmoQRClear" class="btn-clear">Clear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:1 1 320px;">
+          <div class="row" style="align-items:center; gap:.6rem;">
+            <div id="paypalQRPrev" class="qr"></div>
+            <div>
+              <label>PayPal QR Image URL<input id="paypalQR" placeholder="https://... or data URL" /></label>
+              <div class="row" style="margin-top:.3rem;">
+                <label class="ghost" style="padding:.35rem .6rem; border-radius:8px; cursor:pointer; margin:0;">
+                  Upload<input id="paypalQRFile" type="file" accept="image/*" style="display:none">
+                </label>
+                <button id="paypalQRClear" class="btn-clear">Clear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="muted">QR images are shown in the QR checkout window. Uploads are stored as data URLs in your browser (no server needed).</div>
     </div>
 
+    <!-- Products -->
     <div class="card">
       <h3>Products</h3>
       <div class="muted">Shirt/Sweatshirt uses sizes (S–2XL). All other categories use a single NA stock count.</div>
@@ -107,7 +148,9 @@
             </label>
             <label style="flex:1 1 120px">Price<input type="number" step="0.01" id="newPrice" /></label>
           </div>
-          <label style="margin-top:.5rem;">Image URL (optional if you uploaded)<input id="newImg" placeholder="https://..." /></label>
+          <label style="margin-top:.5rem;">Image URL (optional if you uploaded)
+            <input id="newImg" placeholder="https://..." />
+          </label>
         </div>
       </div>
 
@@ -123,8 +166,11 @@
   </dialog>
 
   <script>
+    // Keys
     const SETTINGS_KEY = 'mp_settings_v1';
     const RUNTIME_KEY  = 'mp_runtime_v1';
+
+    // Constants
     const SIZE_KEYS = ['S','M','L','XL','2XL','NA'];
     const CATEGORIES = [
       'Shirt/Sweatshirt','Hat','Poster','Stickers','Collectable','Accessory',
@@ -132,28 +178,14 @@
     ];
     const sizedCategory = (cat)=> cat === 'Shirt/Sweatshirt';
 
-    // Settings
-    const defaultSettings = { outletName:'', headerLogoText:'MERCH LOGO', headerLogoImage:'', venmoUser:'', paypalUser:'' };
+    // Default settings/products (only used on first use/reset)
+    const defaultSettings = { outletName:'', headerLogoText:'MERCH LOGO', headerLogoImage:'', venmoUser:'', paypalUser:'', venmoQR:'', paypalQR:'' };
+
+    // Settings helpers
     function loadSettings(){ try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {...defaultSettings}; }catch(e){ return {...defaultSettings}; } }
     function saveSettings(s){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
-    const s = loadSettings();
-    logoText.value = s.headerLogoText || 'MERCH LOGO';
-    logoImg.value  = s.headerLogoImage || '';
-    outlet.value   = s.outletName || '';
-    venmo.value    = s.venmoUser || '';
-    paypal.value   = s.paypalUser || '';
-    document.getElementById('saveSettings').addEventListener('click', ()=>{
-      const ns = {
-        outletName: outlet.value.trim(),
-        headerLogoText: logoText.value.trim() || 'MERCH LOGO',
-        headerLogoImage: logoImg.value.trim(),
-        venmoUser: venmo.value.trim(),
-        paypalUser: paypal.value.trim()
-      };
-      saveSettings(ns); alert('Settings saved. Open the register tab and refresh.');
-    });
 
-    // Runtime (products + sales)
+    // Runtime helpers (products + sales)
     function loadRuntime(){
       try{
         const rt = JSON.parse(localStorage.getItem(RUNTIME_KEY)) || {products: [], salesLog: []};
@@ -164,7 +196,7 @@
             p.sizes = {S:0,M:0,L:0,XL:0,'2XL':0,NA:stock};
             delete p.stock;
           }
-          ['S','M','L','XL','2XL','NA'].forEach(k=>{ if(typeof p.sizes[k] !== 'number') p.sizes[k]=0; });
+          SIZE_KEYS.forEach(k=>{ if(typeof p.sizes[k] !== 'number') p.sizes[k]=0; });
           return p;
         });
         return rt;
@@ -172,6 +204,56 @@
     }
     function saveRuntime(rt){ localStorage.setItem(RUNTIME_KEY, JSON.stringify(rt)); }
 
+    // Hydrate settings UI
+    const s = loadSettings();
+    logoText.value = s.headerLogoText || 'MERCH LOGO';
+    logoImg.value  = s.headerLogoImage || '';
+    outlet.value   = s.outletName || '';
+    venmo.value    = s.venmoUser || '';
+    paypal.value   = s.paypalUser || '';
+
+    // QR fields
+    const venmoQR = document.getElementById('venmoQR');
+    const paypalQR = document.getElementById('paypalQR');
+    const venmoQRPrev = document.getElementById('venmoQRPrev');
+    const paypalQRPrev = document.getElementById('paypalQRPrev');
+    venmoQR.value = s.venmoQR || '';
+    paypalQR.value = s.paypalQR || '';
+    const setPrev = (el, url)=> el.style.backgroundImage = url ? `url(${url})` : '';
+    setPrev(venmoQRPrev, s.venmoQR); setPrev(paypalQRPrev, s.paypalQR);
+
+    // Save settings
+    document.getElementById('saveSettings').addEventListener('click', ()=>{
+      const ns = {
+        outletName: outlet.value.trim(),
+        headerLogoText: logoText.value.trim() || 'MERCH LOGO',
+        headerLogoImage: logoImg.value.trim(),
+        venmoUser: venmo.value.trim(),
+        paypalUser: paypal.value.trim(),
+        venmoQR: venmoQR.value.trim(),
+        paypalQR: paypalQR.value.trim()
+      };
+      saveSettings(ns); alert('Settings saved. Open the register tab and refresh.');
+    });
+
+    // QR URL live preview
+    venmoQR.addEventListener('input', ()=> setPrev(venmoQRPrev, venmoQR.value.trim()));
+    paypalQR.addEventListener('input', ()=> setPrev(paypalQRPrev, paypalQR.value.trim()));
+
+    // QR upload helpers
+    function fileToDataURL(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+    document.getElementById('venmoQRFile').addEventListener('change', async (e)=>{
+      const f=e.target.files?.[0]; if(!f) return;
+      const data=await fileToDataURL(f); venmoQR.value=data; setPrev(venmoQRPrev,data);
+    });
+    document.getElementById('paypalQRFile').addEventListener('change', async (e)=>{
+      const f=e.target.files?.[0]; if(!f) return;
+      const data=await fileToDataURL(f); paypalQR.value=data; setPrev(paypalQRPrev,data);
+    });
+    document.getElementById('venmoQRClear').addEventListener('click', ()=>{ venmoQR.value=''; setPrev(venmoQRPrev,''); });
+    document.getElementById('paypalQRClear').addEventListener('click', ()=>{ paypalQR.value=''; setPrev(paypalQRPrev,''); });
+
+    // Runtime init (seed a few example products if empty)
     let runtime = loadRuntime();
     if(!runtime.products || runtime.products.length===0){
       runtime.products = [
@@ -183,6 +265,7 @@
       saveRuntime(runtime);
     }
 
+    // Render table
     function renderTable(){
       const tb = document.querySelector('#tbl tbody');
       tb.innerHTML = '';
@@ -222,7 +305,7 @@
           });
           sizesCell.appendChild(wrap);
         } else {
-          const naWrap = document.createElement('div'); naWrap.style.maxWidth='200px';
+          const naWrap = document.createElement('div'); naWrap.style.maxWidth='220px';
           naWrap.innerHTML = `<label class="muted">NA Stock (non-sized)</label><input type="number" min="0" value="${p.sizes.NA||0}" onchange="runtime.products[${i}].sizes.NA=parseInt(this.value)||0; saveRuntime(runtime)">`;
           sizesCell.appendChild(naWrap);
         }
@@ -250,14 +333,13 @@
         saveRuntime(runtime);
         const t = document.getElementById('thumb-'+i);
         if(t) t.style.backgroundImage = `url(${dataUrl})`;
-        // sync the URL input for clarity
         const input = e.target.closest('.img-cell').querySelector('input');
         if(input) input.value = dataUrl;
       };
       reader.readAsDataURL(file);
     }
 
-    // NEW: clear image per row
+    // Clear image per row
     window.clearImg = function(i){
       runtime.products[i].img = '';
       saveRuntime(runtime);
@@ -270,6 +352,7 @@
       }
     }
 
+    // Category change
     window.onChangeCat = function(i, val){
       runtime.products[i].category = val;
       if(val === 'Shirt/Sweatshirt'){
@@ -278,11 +361,12 @@
       saveRuntime(runtime); renderTable();
     }
 
+    // Delete product
     window.del = function(i){
       if(confirm('Delete this product?')){ runtime.products.splice(i,1); saveRuntime(runtime); renderTable(); }
     }
 
-    // ---------- Add product modal (with preview + file upload + clear) ----------
+    // ----- Add product modal -----
     const addModal = document.getElementById('addModal');
     const sizeBlock = document.getElementById('sizeBlock');
     const sizeGrid  = document.getElementById('sizeGrid');
@@ -295,6 +379,7 @@
     const newClear = document.getElementById('newClear');
 
     newCatSel.innerHTML = CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+
     function refreshSizeBlock(){
       const cat = newCatSel.value;
       sizeBlock.style.display = (cat === 'Shirt/Sweatshirt') ? 'block' : 'none';
@@ -309,13 +394,11 @@
     }
     newCatSel.addEventListener('change', refreshSizeBlock);
 
-    // Live preview for URL
     newImg.addEventListener('input', ()=>{
       const val = newImg.value.trim();
       newPreview.style.backgroundImage = val ? `url(${val})` : '';
     });
 
-    // File upload -> data URL
     newFile.addEventListener('change', (e)=>{
       const file = e.target.files?.[0];
       if(!file) return;
@@ -328,7 +411,6 @@
       reader.readAsDataURL(file);
     });
 
-    // NEW: clear image in add dialog
     newClear.addEventListener('click', ()=>{
       newImg.value = '';
       newPreview.style.backgroundImage = '';
@@ -352,7 +434,7 @@
         name: newName.value.trim() || 'New Item',
         category: cat,
         price: +newPrice.value || 0,
-        img: newImg.value.trim(),   // URL or data URL (empty if cleared)
+        img: newImg.value.trim(),   // URL or data URL
         sizes
       };
       runtime.products.unshift(item);
