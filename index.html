@@ -43,12 +43,13 @@
     .actions{display:flex; gap:.5rem; align-items:center; margin:.8rem;}
     .add{flex:1; border-radius:12px; padding:.6rem 1rem; font-weight:800; cursor:pointer; border:1px solid var(--border); background:#111827; color:#fff;}
     .add[disabled]{opacity:.6; cursor:not-allowed; background:#6b7280;}
+    .add.incart{ background:var(--accent); }
     .rmv{width:44px; height:44px; border-radius:12px; border:1px solid var(--border); background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center;}
     .rmv[disabled]{opacity:.4; cursor:not-allowed;}
     .footer{position:sticky; bottom:0; z-index:20; background:rgba(255,255,255,.96); border-top:1px solid var(--border); backdrop-filter: blur(6px);}
     .foot{max-width:1200px; margin:0 auto; padding:.8rem 1rem; display:flex; align-items:center; justify-content:space-between; gap:1rem;}
     .btn{cursor:pointer; border:0; border-radius:10px; padding:.6rem 1rem; font-weight:800; background:var(--brand); color:#fff; box-shadow:var(--shadow);}
-    .btn.ghost{background:#fff; color:var(--text); border:1px solid var(--border);}
+    .btn.ghost{background:#fff; color:#121826; border:1px solid var(--border);}
     dialog{ border:1px solid var(--border); border-radius:16px; background:#fff; color:#111827; box-shadow:var(--shadow); max-width:720px; width:92%; }
     dialog::backdrop{ background:rgba(2,6,23,.35); backdrop-filter: blur(2px); }
     .modal-head{ display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem; border-bottom:1px solid var(--border); }
@@ -107,7 +108,7 @@
       <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1rem;">
         <button id="venmoBtn" class="btn">Venmo</button>
         <button id="paypalBtn" class="btn" style="background:#111827;">PayPal</button>
-        <button id="cashBtn" class="btn" style="background:var(--accent);">💵 Quick Cash</button>
+        <button id="cashBtn" class="btn" style="background:var(--accent);">💵 Cash</button>
       </div>
       <div class="small" style="margin-top:.6rem;">Venmo/PayPal QR images are set in Manage. No sales tax.</div>
     </div>
@@ -198,15 +199,29 @@
 
     // CSV & reset
     document.getElementById('downloadCsv').addEventListener('click', ()=>{
-      const headers = ['timestamp','batch_id','product_id','product_name','category','size','unit_price','qty','remaining_after_size','payment_method','customer_name','customer_email'];
-      const rows = runtime.salesLog.map(s=>[
-        new Date(s.time).toLocaleString(), s.batchId||'', s.productId, s.name, s.category||'', s.size||'NA', s.price, s.qty, s.remainingAfterSize, s.payment||'', s.customerName||'', s.customerEmail||''
+      const headers = ['timestamp','batch_id','product_id','product_name','category','size','unit_price','qty','remaining_after_size','payment_method','customer_name','customer_email','marketing_opt_in'];
+      const rows = (runtime.salesLog||[]).map(s=>[
+        new Date(s.time || s.timestamp || Date.now()).toLocaleString(),
+        s.batchId || '',
+        s.productId || '',
+        s.name || s.productName || '',
+        s.category || '',
+        s.size || 'NA',
+        s.price ?? '',
+        s.qty ?? '',
+        s.remainingAfterSize ?? '',
+        s.payment || '',
+        s.customerName || '',
+        s.customerEmail || '',
+        (s.marketingOptIn ? 'yes' : 'no')
       ]);
-      const esc = (x)=> { const str = (x??'').toString(); return str.includes(',') ? '"'+str.replaceAll('"','""')+'"' : str; };
+      const esc = (x)=> { const str = (x??'').toString(); return str.includes(',') || str.includes('"') ? '"'+str.replaceAll('"','""')+'"' : str; };
       const csv = [headers.join(','), ...rows.map(r=> r.map(esc).join(','))].join('\n');
-      const blob = new Blob([csv], {type:'text/csv'}); const a=document.createElement('a');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const a=document.createElement('a');
       a.href=URL.createObjectURL(blob); a.download=`merch-sales-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); closeMenu();
     });
+
     document.getElementById('clearAll').addEventListener('click', ()=>{
       if(!confirm('Clear products, settings and sales logs in this browser?')) return;
       localStorage.removeItem(SETTINGS_KEY); localStorage.removeItem(RUNTIME_KEY); location.reload();
@@ -437,10 +452,10 @@
       saveRuntime(); buildGrid(); syncCartSummary();
     }
 
-    // Checkout → open QR window (Venmo/PayPal)
+    // Checkout → open QR window (Venmo/PayPal/Cash)
     document.getElementById('venmoBtn').addEventListener('click', ()=> openQR('venmo'));
     document.getElementById('paypalBtn').addEventListener('click', ()=> openQR('paypal'));
-    document.getElementById('cashBtn').addEventListener('click', ()=> quickCash());
+    document.getElementById('cashBtn').addEventListener('click', ()=> openQR('cash'));
 
     function openQR(method){
       const total = cart.reduce((a,c)=>a+c.price*c.qty,0);
@@ -450,19 +465,8 @@
       runtime.salesLog = runtime.salesLog.map(s => (s.sessionId===SESSION_ID && !s.payment) ? {...s, batchId} : s);
       saveRuntime();
       const url = `qr.html?method=${encodeURIComponent(method)}&amount=${encodeURIComponent(total.toFixed(2))}&batch=${encodeURIComponent(batchId)}`;
-      window.open(url, '_blank'); // open QR window
-      // keep cart here so you can tweak if needed; you’ll clear it after payment if you want
-    }
-
-    function quickCash(){
-      const total = cart.reduce((a,c)=>a+c.price*c.qty,0);
-      if(total<=0){ alert('Cart is empty'); return; }
-      // mark this session’s unpaid lines as CASH immediately
-      runtime.salesLog = runtime.salesLog.map(s => (s.sessionId===SESSION_ID && !s.payment) ? {...s, payment:'cash'} : s);
-      saveRuntime();
-      // clear cart
-      cart = []; saveRuntime(); buildGrid(); syncCartSummary(); openCart();
-      alert('Quick Cash recorded.');
+      window.open(url, '_blank'); // open QR / cash form window
+      // keep cart so you can tweak if needed; you’ll clear it after payment if you want
     }
 
     // Init
