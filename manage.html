@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manage Merchandise</title>
+  <style>
+    :root{ --bg:#f6f8fb; --panel:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb; --brand:#2563eb; --danger:#dc2626; }
+    *{box-sizing:border-box}
+    body{font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text); margin:0;}
+    header{display:flex; align-items:center; justify-content:space-between; padding:1rem; background:#ffffff; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10;}
+    main{max-width:1100px; margin:0 auto; padding:1rem;}
+    .card{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:1rem; margin:.8rem 0; box-shadow:0 8px 30px rgba(16,24,40,.08);}
+    input,select{padding:.5rem .6rem; border-radius:8px; border:1px solid var(--border); background:#ffffff; color:var(--text); width:100%;}
+    button{cursor:pointer; border:0; border-radius:10px; padding:.45rem .75rem; font-weight:700; background:var(--brand); color:#fff; margin-right:.4rem;}
+    table{width:100%; border-collapse:collapse; background:#fff;}
+    th,td{border-bottom:1px solid var(--border); padding:.5rem; text-align:left; vertical-align:top;}
+    .row{display:flex; gap:.6rem; flex-wrap:wrap; align-items:center;}
+    .muted{color:var(--muted); font-size:.9rem;}
+    .danger{background:var(--danger); color:white;}
+    .ghost{background:#fff; border:1px solid var(--border); color:var(--text);}
+    .back{background:#fff; border:1px solid var(--border); color:var(--text); border-radius:10px; padding:.45rem .7rem; text-decoration:none;}
+    .sizes{display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:.4rem;}
+    .sizes label{font-size:.85rem; color:var(--muted);}
+    dialog{ border:1px solid var(--border); border-radius:16px; background:#fff; color:#111827; box-shadow:0 8px 30px rgba(16,24,40,.18); max-width:700px; width:92%; }
+    dialog::backdrop{ background:rgba(2,6,23,.35); backdrop-filter: blur(2px); }
+    .modal-head{ display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem; border-bottom:1px solid var(--border); }
+    .modal-body{ padding:1rem; }
+    .thumb{ width:56px; height:56px; border-radius:8px; background:#eef2f7 center/cover no-repeat; border:1px solid var(--border); }
+    .bigthumb{ width:120px; height:120px; border-radius:10px; background:#eef2f7 center/cover no-repeat; border:1px solid var(--border); }
+    .img-cell{display:flex; gap:.4rem; align-items:center;}
+    .img-cell .ghost{margin-right:0;}
+    .btn-clear{ background:#fff; border:1px solid var(--border); color:#374151; }
+    .btn-clear:hover{ background:#f3f4f6; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Manage Merchandise</strong>
+    <a class="back" href="index.html" aria-label="Back to Register">← Back to Register</a>
+  </header>
+  <main>
+    <div class="card">
+      <h3>Header & Payments</h3>
+      <div class="row" style="margin-bottom:.5rem;">
+        <label style="flex:1 1 240px">Header Logo Text<input id="logoText" placeholder="MERCH LOGO"/></label>
+        <label style="flex:1 1 320px">Header Logo Image URL<input id="logoImg" placeholder="https://... (optional; overrides text)"/></label>
+      </div>
+      <div class="row">
+        <label style="flex:1 1 220px">Outlet Name<input id="outlet" /></label>
+        <label style="flex:1 1 220px">Venmo User<input id="venmo" placeholder="your-venmo" /></label>
+        <label style="flex:1 1 220px">PayPal.me User<input id="paypal" placeholder="yourpaypal" /></label>
+        <button id="saveSettings">Save Settings</button>
+      </div>
+      <div class="muted">If an Image URL is set, it shows instead of the text in the register header.</div>
+    </div>
+
+    <div class="card">
+      <h3>Products</h3>
+      <div class="muted">Shirt/Sweatshirt uses sizes (S–2XL). All other categories use a single NA stock count.</div>
+      <div class="row" style="margin:.5rem 0;">
+        <button id="add">Add Product</button>
+        <button id="export">Export JSON</button>
+        <label class="ghost" style="padding:.5rem .9rem; border-radius:10px; cursor:pointer;">
+          Import JSON<input id="import" type="file" accept="application/json" style="display:none">
+        </label>
+        <button id="factory" class="danger">Factory Reset</button>
+      </div>
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th style="width:64px;">Preview</th>
+            <th style="width:20%;">Name</th>
+            <th style="width:18%;">Category</th>
+            <th style="width:12%;">Price</th>
+            <th>Image</th>
+            <th style="width:10%;"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Add Product Modal -->
+  <dialog id="addModal">
+    <div class="modal-head">
+      <strong>Add New Product</strong>
+      <button class="ghost" onclick="addModal.close()">Close</button>
+    </div>
+    <div class="modal-body">
+      <div class="row" style="align-items:flex-start;">
+        <div style="display:flex; flex-direction:column; gap:.6rem; align-items:center;">
+          <div id="newPreview" class="bigthumb"></div>
+          <div class="row" style="gap:.4rem;">
+            <label class="ghost" style="padding:.4rem .7rem; border-radius:10px; cursor:pointer;">
+              Upload<input id="newFile" type="file" accept="image/*" style="display:none">
+            </label>
+            <button id="newClear" class="btn-clear">Clear</button>
+          </div>
+        </div>
+        <div style="flex:1 1 420px;">
+          <label>Name<input id="newName" /></label>
+          <div class="row" style="margin-top:.5rem;">
+            <label style="flex:1 1 200px">Category
+              <select id="newCat"></select>
+            </label>
+            <label style="flex:1 1 120px">Price<input type="number" step="0.01" id="newPrice" /></label>
+          </div>
+          <label style="margin-top:.5rem;">Image URL (optional if you uploaded)<input id="newImg" placeholder="https://..." /></label>
+        </div>
+      </div>
+
+      <div id="sizeBlock" style="margin-top:.8rem; display:none;">
+        <div class="muted" style="margin-bottom:.4rem;">Set starting stock per size</div>
+        <div class="sizes" id="sizeGrid"></div>
+      </div>
+
+      <div class="row" style="margin-top:1rem;">
+        <button id="createBtn">Create</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    const SETTINGS_KEY = 'mp_settings_v1';
+    const RUNTIME_KEY  = 'mp_runtime_v1';
+    const SIZE_KEYS = ['S','M','L','XL','2XL','NA'];
+    const CATEGORIES = [
+      'Shirt/Sweatshirt','Hat','Poster','Stickers','Collectable','Accessory',
+      'CD','Record','Tape','DVD','Patch','Pins','Glass','Custom/Other'
+    ];
+    const sizedCategory = (cat)=> cat === 'Shirt/Sweatshirt';
+
+    // Settings
+    const defaultSettings = { outletName:'', headerLogoText:'MERCH LOGO', headerLogoImage:'', venmoUser:'', paypalUser:'' };
+    function loadSettings(){ try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {...defaultSettings}; }catch(e){ return {...defaultSettings}; } }
+    function saveSettings(s){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
+    const s = loadSettings();
+    logoText.value = s.headerLogoText || 'MERCH LOGO';
+    logoImg.value  = s.headerLogoImage || '';
+    outlet.value   = s.outletName || '';
+    venmo.value    = s.venmoUser || '';
+    paypal.value   = s.paypalUser || '';
+    document.getElementById('saveSettings').addEventListener('click', ()=>{
+      const ns = {
+        outletName: outlet.value.trim(),
+        headerLogoText: logoText.value.trim() || 'MERCH LOGO',
+        headerLogoImage: logoImg.value.trim(),
+        venmoUser: venmo.value.trim(),
+        paypalUser: paypal.value.trim()
+      };
+      saveSettings(ns); alert('Settings saved. Open the register tab and refresh.');
+    });
+
+    // Runtime (products + sales)
+    function loadRuntime(){
+      try{
+        const rt = JSON.parse(localStorage.getItem(RUNTIME_KEY)) || {products: [], salesLog: []};
+        rt.products = (rt.products||[]).map(p=>{
+          p.category = p.category || 'Custom/Other';
+          if(!p.sizes){
+            const stock = p.stock||0;
+            p.sizes = {S:0,M:0,L:0,XL:0,'2XL':0,NA:stock};
+            delete p.stock;
+          }
+          ['S','M','L','XL','2XL','NA'].forEach(k=>{ if(typeof p.sizes[k] !== 'number') p.sizes[k]=0; });
+          return p;
+        });
+        return rt;
+      }catch(e){ return {products: [], salesLog: []}; }
+    }
+    function saveRuntime(rt){ localStorage.setItem(RUNTIME_KEY, JSON.stringify(rt)); }
+
+    let runtime = loadRuntime();
+    if(!runtime.products || runtime.products.length===0){
+      runtime.products = [
+        {id:crypto.randomUUID(), name:'T-Shirt',      category:'Shirt/Sweatshirt', price:25, img:'', sizes:{S:5,M:5,L:5,XL:3,'2XL':2,NA:0}},
+        {id:crypto.randomUUID(), name:'Hoodie',       category:'Shirt/Sweatshirt', price:55, img:'', sizes:{S:0,M:4,L:4,XL:2,'2XL':2,NA:0}},
+        {id:crypto.randomUUID(), name:'Sticker Pack', category:'Stickers',         price:5,  img:'', sizes:{S:0,M:0,L:0,XL:0,'2XL':0,NA:100}},
+        {id:crypto.randomUUID(), name:'Beanie',       category:'Hat',              price:20, img:'', sizes:{S:0,M:0,L:0,XL:0,'2XL':0,NA:15}}
+      ];
+      saveRuntime(runtime);
+    }
+
+    function renderTable(){
+      const tb = document.querySelector('#tbl tbody');
+      tb.innerHTML = '';
+      runtime.products.forEach((p,i)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><div class="thumb" id="thumb-${i}"></div></td>
+          <td><input value="${p.name}" onchange="runtime.products[${i}].name=this.value; saveRuntime(runtime)"></td>
+          <td>
+            <select onchange="onChangeCat(${i}, this.value)">${CATEGORIES.map(c=>`<option ${p.category===c?'selected':''}>${c}</option>`).join('')}</select>
+          </td>
+          <td><input type="number" step="0.01" value="${p.price}" onchange="runtime.products[${i}].price=+this.value; saveRuntime(runtime)"></td>
+          <td>
+            <div class="img-cell">
+              <input value="${p.img||''}" placeholder="https://... or data URL" onchange="setImg(${i}, this.value)">
+              <label class="ghost" style="padding:.35rem .6rem; border-radius:8px; cursor:pointer; margin:0;">
+                Upload<input id="file-${i}" type="file" accept="image/*" style="display:none" onchange="rowUpload(event, ${i})">
+              </label>
+              <button class="btn-clear" onclick="clearImg(${i})">Clear</button>
+            </div>
+          </td>
+          <td><button class="danger" onclick="del(${i})">Delete</button></td>
+        `;
+        tb.appendChild(tr);
+        const thumb = tr.querySelector(`#thumb-${i}`);
+        thumb.style.backgroundImage = p.img ? `url(${p.img})` : '';
+
+        // Sizes row
+        const sizesRow = document.createElement('tr');
+        const sizesCell = document.createElement('td'); sizesCell.colSpan=6;
+        if(p.category==='Shirt/Sweatshirt'){
+          const wrap = document.createElement('div'); wrap.className='sizes';
+          ['S','M','L','XL','2XL'].forEach(k=>{
+            const d = document.createElement('div');
+            d.innerHTML = `<label>${k}</label><input type="number" min="0" value="${p.sizes[k]||0}" onchange="runtime.products[${i}].sizes['${k}']=parseInt(this.value)||0; saveRuntime(runtime)">`;
+            wrap.appendChild(d);
+          });
+          sizesCell.appendChild(wrap);
+        } else {
+          const naWrap = document.createElement('div'); naWrap.style.maxWidth='200px';
+          naWrap.innerHTML = `<label class="muted">NA Stock (non-sized)</label><input type="number" min="0" value="${p.sizes.NA||0}" onchange="runtime.products[${i}].sizes.NA=parseInt(this.value)||0; saveRuntime(runtime)">`;
+          sizesCell.appendChild(naWrap);
+        }
+        sizesRow.appendChild(sizesCell);
+        tb.appendChild(sizesRow);
+      });
+    }
+
+    // Inline image URL -> update + preview
+    window.setImg = function(i, val){
+      runtime.products[i].img = val;
+      saveRuntime(runtime);
+      const t = document.getElementById('thumb-'+i);
+      if(t) t.style.backgroundImage = val ? `url(${val})` : '';
+    }
+
+    // Inline upload -> data URL + preview
+    window.rowUpload = function(e, i){
+      const file = e.target.files && e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        const dataUrl = reader.result;
+        runtime.products[i].img = dataUrl;
+        saveRuntime(runtime);
+        const t = document.getElementById('thumb-'+i);
+        if(t) t.style.backgroundImage = `url(${dataUrl})`;
+        // sync the URL input for clarity
+        const input = e.target.closest('.img-cell').querySelector('input');
+        if(input) input.value = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // NEW: clear image per row
+    window.clearImg = function(i){
+      runtime.products[i].img = '';
+      saveRuntime(runtime);
+      const t = document.getElementById('thumb-'+i); if(t) t.style.backgroundImage = '';
+      const row = document.querySelector(`#file-${i}`)?.closest('.img-cell');
+      if(row){
+        const input = row.querySelector('input[type="text"], .img-cell input:not([type])');
+        if(input) input.value = '';
+        const file = row.querySelector('input[type="file"]'); if(file) file.value = '';
+      }
+    }
+
+    window.onChangeCat = function(i, val){
+      runtime.products[i].category = val;
+      if(val === 'Shirt/Sweatshirt'){
+        ['S','M','L','XL','2XL'].forEach(k=>{ if(typeof runtime.products[i].sizes[k] !== 'number') runtime.products[i].sizes[k]=0; });
+      }
+      saveRuntime(runtime); renderTable();
+    }
+
+    window.del = function(i){
+      if(confirm('Delete this product?')){ runtime.products.splice(i,1); saveRuntime(runtime); renderTable(); }
+    }
+
+    // ---------- Add product modal (with preview + file upload + clear) ----------
+    const addModal = document.getElementById('addModal');
+    const sizeBlock = document.getElementById('sizeBlock');
+    const sizeGrid  = document.getElementById('sizeGrid');
+    const newCatSel = document.getElementById('newCat');
+    const newName = document.getElementById('newName');
+    const newPrice= document.getElementById('newPrice');
+    const newImg  = document.getElementById('newImg');
+    const newFile = document.getElementById('newFile');
+    const newPreview = document.getElementById('newPreview');
+    const newClear = document.getElementById('newClear');
+
+    newCatSel.innerHTML = CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+    function refreshSizeBlock(){
+      const cat = newCatSel.value;
+      sizeBlock.style.display = (cat === 'Shirt/Sweatshirt') ? 'block' : 'none';
+      sizeGrid.innerHTML = '';
+      if(cat === 'Shirt/Sweatshirt'){
+        ['S','M','L','XL','2XL'].forEach(k=>{
+          const d = document.createElement('div');
+          d.innerHTML = `<label>${k}</label><input type="number" min="0" value="0" id="size_${k}">`;
+          sizeGrid.appendChild(d);
+        });
+      }
+    }
+    newCatSel.addEventListener('change', refreshSizeBlock);
+
+    // Live preview for URL
+    newImg.addEventListener('input', ()=>{
+      const val = newImg.value.trim();
+      newPreview.style.backgroundImage = val ? `url(${val})` : '';
+    });
+
+    // File upload -> data URL
+    newFile.addEventListener('change', (e)=>{
+      const file = e.target.files?.[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = ()=> {
+        const dataUrl = reader.result;
+        newImg.value = dataUrl;
+        newPreview.style.backgroundImage = `url(${dataUrl})`;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // NEW: clear image in add dialog
+    newClear.addEventListener('click', ()=>{
+      newImg.value = '';
+      newPreview.style.backgroundImage = '';
+      newFile.value = '';
+    });
+
+    document.getElementById('add').addEventListener('click', ()=>{
+      newName.value=''; newPrice.value=''; newImg.value='';
+      newPreview.style.backgroundImage = ''; newFile.value='';
+      newCatSel.value='Shirt/Sweatshirt'; refreshSizeBlock(); addModal.showModal();
+    });
+
+    document.getElementById('createBtn').addEventListener('click', ()=>{
+      const cat = newCatSel.value;
+      const sizes = {S:0,M:0,L:0,XL:0,'2XL':0,NA:0};
+      if(cat === 'Shirt/Sweatshirt'){
+        ['S','M','L','XL','2XL'].forEach(k=> sizes[k] = parseInt(document.getElementById('size_'+k).value)||0);
+      } else { sizes.NA = 0; }
+      const item = {
+        id: crypto.randomUUID(),
+        name: newName.value.trim() || 'New Item',
+        category: cat,
+        price: +newPrice.value || 0,
+        img: newImg.value.trim(),   // URL or data URL (empty if cleared)
+        sizes
+      };
+      runtime.products.unshift(item);
+      saveRuntime(runtime);
+      renderTable();
+      addModal.close();
+      window.scrollTo({top:0, behavior:'smooth'});
+    });
+
+    // Export / Import / Reset
+    document.getElementById('export').addEventListener('click', ()=>{
+      const payload = runtime.products.map(p=>({
+        id:p.id, name:p.name, category:p.category, price:+p.price, img:p.img||'',
+        sizes: { S:p.sizes.S||0, M:p.sizes.M||0, L:p.sizes.L||0, XL:p.sizes.XL||0, '2XL':p.sizes['2XL']||0, NA:p.sizes.NA||0 }
+      }));
+      const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='products.json';
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+
+    document.getElementById('import').addEventListener('change', (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        try{
+          const arr = JSON.parse(reader.result);
+          if(Array.isArray(arr)){
+            runtime.products = arr.map(p=>{
+              const cat = p.category || 'Custom/Other';
+              const sizes = p.sizes || {S:0,M:0,L:0,XL:0,'2XL':0,NA:(p.stock||0)};
+              ['S','M','L','XL','2XL','NA'].forEach(k=>{ if(typeof sizes[k] !== 'number') sizes[k]=0; });
+              return { id:p.id||crypto.randomUUID(), name:p.name||'Item', category:cat, price:+p.price||0, img:p.img||'', sizes };
+            });
+            saveRuntime(runtime); renderTable(); alert('Imported! Open the register and refresh.');
+          } else { alert('Invalid JSON'); }
+        }catch(err){ alert('Could not parse JSON'); }
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('factory').addEventListener('click', ()=>{
+      if(!confirm('This will clear products, settings and sales logs on this browser. Continue?')) return;
+      localStorage.removeItem('mp_settings_v1');
+      localStorage.removeItem('mp_runtime_v1');
+      alert('Reset complete. Reload both pages.');
+    });
+
+    // Initial render
+    renderTable();
+  </script>
+</body>
+</html>

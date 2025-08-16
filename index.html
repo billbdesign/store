@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Merch Register</title>
+  <style>
+    :root{
+      --bg:#f6f8fb; --panel:#ffffff; --text:#111827; --muted:#6b7280;
+      --brand:#2563eb; --accent:#16a34a; --danger:#dc2626; --warn:#d97706;
+      --border:#e5e7eb; --shadow:0 8px 30px rgba(16,24,40,.08);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:var(--bg); color:var(--text); display:flex; flex-direction:column;}
+    header{position:sticky; top:0; z-index:20; background:rgba(255,255,255,.96); border-bottom:1px solid var(--border); backdrop-filter: blur(6px);}
+    .head{max-width:1200px; margin:0 auto; padding:.8rem 1rem; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:.75rem;}
+    .iconbtn{cursor:pointer; border:1px solid var(--border); background:#fff; border-radius:10px; padding:.5rem .7rem; font-weight:700; box-shadow:var(--shadow);}
+    .brand{display:flex; align-items:center; gap:.6rem; justify-content:center; font-weight:800; letter-spacing:.3px;}
+    .brand img{height:40px; width:auto; border-radius:6px;}
+    .brand .text{font-size:1.05rem;}
+    .cart{display:inline-flex; align-items:center; gap:.4rem;}
+    .count{display:inline-flex; align-items:center; justify-content:center; min-width:24px; height:24px; padding:0 .4rem; border-radius:999px; background:var(--brand); color:#fff; font-weight:800;}
+    .menu{position:absolute; left:1rem; top:56px; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); display:none; min-width:220px;}
+    .menu button,.menu a{display:block; width:100%; text-align:left; padding:.7rem .9rem; background:transparent; border:0; color:var(--text); text-decoration:none; cursor:pointer;}
+    .menu button:hover,.menu a:hover{background:#f3f4f6;}
+    .wrap{max-width:1200px; width:100%; margin:0 auto; padding:1rem; flex:1 1 auto;}
+    .grid{display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:1rem;}
+    @media(min-width:800px){ .grid{ grid-template-columns: repeat(4, minmax(0,1fr)); } }
+    .card{background:var(--panel); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:var(--shadow); display:flex; flex-direction:column;}
+    .card.selected{ outline:3px solid var(--accent); }
+    .thumb{aspect-ratio:1/1; background:#eef2f7 center/cover no-repeat;}
+    .meta{padding:.8rem; display:grid; grid-template-columns: 1fr auto; align-items:center; gap:.4rem;}
+    .name{font-weight:800;}
+    .price{font-weight:800;}
+    .stock{grid-column:1 / -1; font-size:.88rem; color:var(--muted);}
+    .stock.low{ color:var(--warn); }
+    .stock.out{ color:var(--danger); }
+    .row{display:flex; align-items:center; gap:.4rem; margin-top:.4rem; flex-wrap:wrap;}
+    .qtybtn{padding:.35rem .6rem; border-radius:10px; border:1px solid var(--border); background:#fff; cursor:pointer;}
+    .qty{width:64px; text-align:center; padding:.4rem .5rem; border-radius:10px; border:1px solid var(--border);}
+    select{padding:.45rem .6rem; border-radius:10px; border:1px solid var(--border); background:#fff;}
+    .actions{display:flex; gap:.5rem; align-items:center; margin:.8rem;}
+    .add{flex:1; border-radius:12px; padding:.6rem 1rem; font-weight:800; cursor:pointer; border:1px solid var(--border); background:#111827; color:#fff;}
+    .add[disabled]{opacity:.6; cursor:not-allowed; background:#6b7280;}
+    .add.incart{ background:var(--accent); }
+    .rmv{width:44px; height:44px; border-radius:12px; border:1px solid var(--border); background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+    .rmv[disabled]{opacity:.4; cursor:not-allowed;}
+    .footer{position:sticky; bottom:0; z-index:20; background:rgba(255,255,255,.96); border-top:1px solid var(--border); backdrop-filter: blur(6px);}
+    .foot{max-width:1200px; margin:0 auto; padding:.8rem 1rem; display:flex; align-items:center; justify-content:space-between; gap:1rem;}
+    .btn{cursor:pointer; border:0; border-radius:10px; padding:.6rem 1rem; font-weight:800; background:var(--brand); color:#fff; box-shadow:var(--shadow);}
+    .btn.ghost{background:#fff; color:var(--text); border:1px solid var(--border);}
+    dialog{ border:1px solid var(--border); border-radius:16px; background:#fff; color:#111827; box-shadow:var(--shadow); max-width:720px; width:92%; }
+    dialog::backdrop{ background:rgba(2,6,23,.35); backdrop-filter: blur(2px); }
+    .modal-head{ display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem; border-bottom:1px solid var(--border); }
+    .modal-body{ padding:1rem; max-height:60vh; overflow:auto; }
+    .cart-item{ display:grid; grid-template-columns: 1fr auto; align-items:center; gap:.6rem; padding:.6rem .2rem; border-bottom:1px dashed var(--border); }
+    .ops{ display:flex; align-items:center; gap:.4rem; }
+    .small{ font-size:.9rem; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="head">
+      <button id="hamburger" class="iconbtn" aria-haspopup="menu" aria-expanded="false">☰</button>
+      <div class="brand">
+        <img id="logoImg" src="" alt="Logo" style="display:none;">
+        <div id="logoText" class="text">MERCH LOGO</div>
+      </div>
+      <button id="cartBtn" class="iconbtn cart">🛒 <span id="cartCount" class="count">0</span></button>
+      <div id="menu" class="menu" role="menu" aria-hidden="true">
+        <a href="manage.html" role="menuitem">⚙️ Manage Merchandise</a>
+        <button id="downloadCsv" role="menuitem">⬇️ Download CSV</button>
+        <button id="clearAll" role="menuitem">🧹 Factory Reset</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div id="grid" class="grid" aria-live="polite"></div>
+  </div>
+
+  <div class="footer">
+    <div class="foot">
+      <div>
+        <div class="small">Items <span id="itemCount">0</span></div>
+        <div style="font-weight:800;">Subtotal $<span id="subtotal">0.00</span></div>
+      </div>
+      <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+        <button id="clearCartBtn" class="btn ghost">Clear Cart</button>
+        <button id="openCart" class="btn">Open Cart</button>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="cartModal">
+    <div class="modal-head">
+      <strong>Your Cart</strong>
+      <button class="btn ghost" onclick="cartModal.close()">Close</button>
+    </div>
+    <div class="modal-body">
+      <div id="cartList"></div>
+      <div id="emptyState" class="small">Your cart is empty.</div>
+      <div style="margin-top:.6rem;">
+        <div class="small">Subtotal: $<span id="cartSubtotal">0.00</span></div>
+        <div style="font-weight:800;">Total: $<span id="grandTotal">0.00</span></div>
+      </div>
+      <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1rem;">
+        <button id="venmoBtn" class="btn">Venmo</button>
+        <button id="paypalBtn" class="btn" style="background:#111827;">PayPal</button>
+        <button id="cashBtn" class="btn" style="background:var(--accent);">💵 Quick Cash</button>
+      </div>
+      <div class="small" style="margin-top:.6rem;">Venmo/PayPal usernames are set in Manage. No sales tax.</div>
+    </div>
+  </dialog>
+
+  <script>
+    // Storage keys
+    const SETTINGS_KEY = 'mp_settings_v1';
+    const RUNTIME_KEY  = 'mp_runtime_v1';
+
+    // Constants
+    const SIZE_KEYS = ['S','M','L','XL','2XL','NA'];
+    const CATEGORIES = [
+      {key:'Shirt/Sweatshirt', sized:true},
+      {key:'Hat', sized:false},
+      {key:'Poster', sized:false},
+      {key:'Stickers', sized:false},
+      {key:'Collectable', sized:false},
+      {key:'Accessory', sized:false},
+      {key:'CD', sized:false},
+      {key:'Record', sized:false},
+      {key:'Tape', sized:false},
+      {key:'DVD', sized:false},
+      {key:'Patch', sized:false},
+      {key:'Pins', sized:false},
+      {key:'Glass', sized:false},
+      {key:'Custom/Other', sized:false}
+    ];
+
+    // Defaults
+    const defaultSettings = { outletName:'', headerLogoText:'MERCH LOGO', headerLogoImage:'', venmoUser:'', paypalUser:'' };
+    const defaultProducts = [
+      {id:'sku-shirt',  name:'T-Shirt',      category:'Shirt/Sweatshirt', price:25, img:'', sizes:{S:5,M:5,L:5,XL:3,'2XL':2,NA:0}},
+      {id:'sku-hoodie', name:'Hoodie',       category:'Shirt/Sweatshirt', price:55, img:'', sizes:{S:0,M:4,L:4,XL:2,'2XL':2,NA:0}},
+      {id:'sku-pack',   name:'Sticker Pack', category:'Stickers',         price:5,  img:'', sizes:{S:0,M:0,L:0,XL:0,'2XL':0,NA:100}},
+      {id:'sku-beanie', name:'Beanie',       category:'Hat',              price:20, img:'', sizes:{S:0,M:0,L:0,XL:0,'2XL':0,NA:15}}
+    ];
+
+    // Helpers
+    const fmt = n => (Number(n||0)).toFixed(2);
+    const isSizedCat = cat => !!CATEGORIES.find(c=>c.key===cat && c.sized);
+    const totalStock = p => isSizedCat(p.category)
+      ? ['S','M','L','XL','2XL'].reduce((a,k)=>a+(p.sizes?.[k]||0),0)
+      : (p.sizes?.NA||0);
+    const loadSettings = ()=> { try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {...defaultSettings}; }catch(e){ return {...defaultSettings}; } };
+    const saveSettings = s => localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+    const loadRuntime  = ()=> {
+      try{
+        const rt = JSON.parse(localStorage.getItem(RUNTIME_KEY)) || {products:[...defaultProducts], salesLog:[]};
+        rt.products = rt.products.map(p=>{
+          p.category = p.category || 'Custom/Other';
+          if(!p.sizes){
+            const stock = p.stock||0;
+            p.sizes = {S:0,M:0,L:0,XL:0,'2XL':0,NA:stock};
+            delete p.stock;
+          }
+          SIZE_KEYS.forEach(k=>{ if(typeof p.sizes[k] !== 'number') p.sizes[k]=0; });
+          return p;
+        });
+        return rt;
+      }catch(e){
+        return {products:[...defaultProducts], salesLog:[]};
+      }
+    };
+    const saveRuntime  = rt => localStorage.setItem(RUNTIME_KEY, JSON.stringify(rt));
+
+    // State
+    let settings = loadSettings();
+    let runtime  = loadRuntime();
+    let cart = []; // {productId, name, price, size, qty}
+
+    // Header logo
+    (function hydrateHeader(){
+      const img = document.getElementById('logoImg');
+      const txt = document.getElementById('logoText');
+      if(settings.headerLogoImage){ img.src = settings.headerLogoImage; img.style.display='block'; txt.style.display='none'; }
+      else { txt.textContent = settings.headerLogoText || 'MERCH LOGO'; img.style.display='none'; txt.style.display='block'; }
+    })();
+
+    // Menu toggle
+    const hamburger = document.getElementById('hamburger');
+    const menu = document.getElementById('menu');
+    function closeMenu(){ menu.style.display='none'; hamburger.setAttribute('aria-expanded','false'); menu.setAttribute('aria-hidden','true'); }
+    function openMenu(){ menu.style.display='block'; hamburger.setAttribute('aria-expanded','true'); menu.setAttribute('aria-hidden','false'); }
+    hamburger.addEventListener('click', (e)=>{ e.stopPropagation(); menu.style.display==='block'?closeMenu():openMenu(); });
+    document.addEventListener('click', (e)=>{ if(menu.style.display==='block' && !menu.contains(e.target) && e.target!==hamburger) closeMenu(); });
+
+    // CSV & reset
+    document.getElementById('downloadCsv').addEventListener('click', ()=>{
+      const headers = ['timestamp','product_id','product_name','category','size','unit_price','qty','remaining_after_size','payment_method'];
+      const rows = runtime.salesLog.map(s=>[
+        new Date(s.time).toLocaleString(), s.productId, s.name, s.category||'', s.size||'NA', s.price, s.qty, s.remainingAfterSize, s.payment||''
+      ]);
+      const esc = (x)=> { const str = (x??'').toString(); return str.includes(',') ? '"'+str.replaceAll('"','""')+'"' : str; };
+      const csv = [headers.join(','), ...rows.map(r=> r.map(esc).join(','))].join('\n');
+      const blob = new Blob([csv], {type:'text/csv'}); const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob); a.download=`merch-sales-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); closeMenu();
+    });
+    document.getElementById('clearAll').addEventListener('click', ()=>{
+      if(!confirm('Clear products, settings and sales logs in this browser?')) return;
+      localStorage.removeItem(SETTINGS_KEY); localStorage.removeItem(RUNTIME_KEY); location.reload();
+    });
+
+    // --------- Helpers for stock/controls ----------
+    function getAvailable(p, size) { return (p.sizes?.[size] ?? 0); }
+    function clampQtyInput(qtyEl, maxAvail){
+      const v = Math.max(1, parseInt(qtyEl.value || '1', 10));
+      const clamped = Math.min(v, Math.max(0, maxAvail));
+      qtyEl.value = (clamped || 1);
+      qtyEl.max = String(Math.max(1, maxAvail));
+    }
+    function updateAddState(p, sizeSel, qtyEl, addBtn){
+      const size = sizeSel ? sizeSel.value : 'NA';
+      const avail = getAvailable(p, size);
+      clampQtyInput(qtyEl, avail);
+      if(avail <= 0){
+        addBtn.disabled = true;
+        addBtn.textContent = 'OUT OF THAT SIZE';
+      }else{
+        addBtn.disabled = false;
+        addBtn.textContent = 'ADD TO CART';
+      }
+    }
+    function inCartFor(productId, size){
+      return cart.find(ci => ci.productId===productId && ci.size===size);
+    }
+
+    // Grid
+    function buildGrid(){
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      runtime.products.forEach(p=>{
+        const card = document.createElement('div'); card.className = 'card';
+        const img = document.createElement('div'); img.className='thumb'; if(p.img) img.style.backgroundImage=`url(${p.img})`;
+        const meta = document.createElement('div'); meta.className='meta';
+        const name = document.createElement('div'); name.className='name'; name.textContent = p.name;
+        const price = document.createElement('div'); price.className='price'; price.textContent = `$${fmt(p.price)}`;
+        const st = totalStock(p);
+        const stock = document.createElement('div'); stock.className='stock'; stock.textContent = st<=0 ? 'Out of stock' : `${st} available`; if(st<=0) stock.classList.add('out'); else if(st<=3) stock.classList.add('low');
+        meta.appendChild(name); meta.appendChild(price); meta.appendChild(stock);
+
+        const row = document.createElement('div'); row.className='row';
+        let sizeSel=null;
+        if(isSizedCat(p.category)){
+          sizeSel = document.createElement('select');
+          ['S','M','L','XL','2XL'].forEach(k=>{
+            const opt=document.createElement('option'); opt.value=k; opt.textContent=`${k} (${p.sizes[k]||0})`; sizeSel.appendChild(opt);
+          });
+          row.appendChild(sizeSel);
+        }
+        const minus = document.createElement('button'); minus.className='qtybtn'; minus.textContent='−';
+        const qty = document.createElement('input'); qty.type='number'; qty.min='1'; qty.value='1'; qty.className='qty';
+        const plus = document.createElement('button'); plus.className='qtybtn'; plus.textContent='+';
+        row.appendChild(minus); row.appendChild(qty); row.appendChild(plus);
+        meta.appendChild(row);
+
+        // action buttons line: Add + Trash
+        const actions = document.createElement('div'); actions.className='actions';
+        const add = document.createElement('button'); add.className='add'; add.textContent = 'ADD TO CART';
+        const rmv = document.createElement('button'); rmv.className='rmv'; rmv.innerHTML='🗑️'; rmv.title='Remove from cart';
+
+        // state helpers
+        const currentSize = ()=> isSizedCat(p.category) ? sizeSel.value : 'NA';
+        function refreshTrash(){
+          const line = inCartFor(p.id, currentSize());
+          rmv.disabled = !line;
+        }
+        function refreshSizeLabels(){
+          if(sizeSel){
+            Array.from(sizeSel.options).forEach(o=>{
+              const k = o.value; o.textContent = `${k} (${p.sizes[k]||0})`;
+            });
+          }
+        }
+        function refreshStockBanner(){
+          const t = totalStock(p);
+          stock.textContent = t<=0 ? 'Out of stock' : `${t} available`;
+          stock.classList.toggle('out', t<=0);
+          stock.classList.toggle('low', t>0 && t<=3);
+        }
+
+        // wire events
+        if(sizeSel){
+          sizeSel.addEventListener('change', ()=>{
+            refreshSizeLabels();
+            updateAddState(p, sizeSel, qty, add);
+            refreshTrash();
+          });
+        }
+        minus.onclick = ()=>{ qty.value = Math.max(1, (+qty.value||1)-1); updateAddState(p, sizeSel||{value:'NA'}, qty, add); };
+        plus.onclick  = ()=>{ qty.value = (+qty.value||1)+1; updateAddState(p, sizeSel||{value:'NA'}, qty, add); };
+        qty.addEventListener('input', ()=> updateAddState(p, sizeSel||{value:'NA'}, qty, add));
+
+        add.onclick = ()=>{
+          const size = currentSize();
+          const want = Math.max(1, parseInt(qty.value)||1);
+          const available = getAvailable(p, size);
+          if(want > available){
+            alert(`Only ${available} left for ${p.name} — ${size}.`);
+            updateAddState(p, sizeSel||{value:'NA'}, qty, add);
+            return;
+          }
+          if(available <= 0) return;
+
+          p.sizes[size] = available - want;
+          const existing = cart.find(ci=>ci.productId===p.id && ci.size===size);
+          if(existing) existing.qty += want; else cart.push({productId:p.id, name:p.name, price:p.price, size, qty:want});
+          runtime.salesLog.push({time:new Date().toISOString(), productId:p.id, name:p.name, category:p.category, size, price:p.price, qty:want, remainingAfterSize:p.sizes[size], payment:''});
+          saveRuntime();
+
+          refreshSizeLabels();
+          refreshStockBanner();
+          updateAddState(p, sizeSel||{value:'NA'}, qty, add);
+          refreshTrash();
+          buildGrid(); // keep tiles in sync
+          syncCartSummary();
+        };
+
+        // NEW: quick-remove current size from cart
+        rmv.onclick = ()=>{
+          const size = currentSize();
+          const line = inCartFor(p.id, size);
+          if(!line) return;
+          // restore stock
+          p.sizes[size] = (p.sizes[size]||0) + line.qty;
+          // remove that line
+          cart = cart.filter(ci => !(ci.productId===p.id && ci.size===size));
+          saveRuntime();
+          refreshSizeLabels();
+          refreshStockBanner();
+          updateAddState(p, sizeSel||{value:'NA'}, qty, add);
+          refreshTrash();
+          buildGrid();
+          syncCartSummary();
+        };
+
+        // initial states
+        updateAddState(p, sizeSel||{value:'NA'}, qty, add);
+        refreshTrash();
+
+        actions.appendChild(add);
+        actions.appendChild(rmv);
+        card.appendChild(img); 
+        card.appendChild(meta); 
+        card.appendChild(actions);
+
+        if(st<=0){ add.disabled=true; add.textContent='OUT OF STOCK'; card.style.opacity=.5; }
+        grid.appendChild(card);
+      });
+    }
+
+    function syncCartSummary(){
+      const count = cart.reduce((a,c)=>a+c.qty,0);
+      const sub = cart.reduce((a,c)=>a+c.price*c.qty,0);
+      document.getElementById('cartCount').textContent = count;
+      document.getElementById('itemCount').textContent = count;
+      document.getElementById('subtotal').textContent = fmt(sub);
+    }
+
+    // Cart modal
+    const cartModal = document.getElementById('cartModal');
+    document.getElementById('openCart').addEventListener('click', openCart);
+    document.getElementById('cartBtn').addEventListener('click', openCart);
+    document.getElementById('clearCartBtn').addEventListener('click', clearCart);
+
+    function openCart(){
+      const list = document.getElementById('cartList');
+      list.innerHTML = '';
+      document.getElementById('emptyState').style.display = cart.length? 'none':'block';
+      cart.forEach((line, idx)=>{
+        const row = document.createElement('div'); row.className='cart-item';
+        const title = document.createElement('div'); title.textContent = `${line.name} — ${line.size}`;
+        const ops = document.createElement('div'); ops.className='ops';
+        const minus = document.createElement('button'); minus.className='qtybtn'; minus.textContent='−';
+        const qty = document.createElement('span'); qty.textContent = ` ${line.qty} `;
+        const plus = document.createElement('button'); plus.className='qtybtn'; plus.textContent='+';
+        const price = document.createElement('div'); price.textContent = `$${fmt(line.price*line.qty)}`;
+        const del = document.createElement('button'); del.className='btn'; del.style.background='var(--danger)'; del.textContent='Remove';
+        minus.onclick = ()=> adjustQty(idx, -1);
+        plus.onclick = ()=> adjustQty(idx, +1);
+        del.onclick = ()=> removeLine(idx);
+        ops.appendChild(minus); ops.appendChild(qty); ops.appendChild(plus); ops.appendChild(price); ops.appendChild(del);
+        row.appendChild(title); row.appendChild(ops);
+        list.appendChild(row);
+      });
+      const sub = cart.reduce((a,c)=>a+c.price*c.qty,0);
+      document.getElementById('cartSubtotal').textContent = fmt(sub);
+      document.getElementById('grandTotal').textContent = fmt(sub);
+      cartModal.showModal();
+    }
+
+    function adjustQty(idx, delta){
+      const line = cart[idx]; if(!line) return;
+      const prod = runtime.products.find(p=>p.id===line.productId);
+      const size = line.size;
+      if(delta>0){
+        if((prod.sizes[size]||0)>0){
+          prod.sizes[size]-=1; line.qty+=1;
+          runtime.salesLog.push({time:new Date().toISOString(), productId:prod.id, name:prod.name, category:prod.category, size, price:prod.price, qty:1, remainingAfterSize:prod.sizes[size], payment:''});
+        }
+      } else {
+        if(line.qty>1){ line.qty-=1; prod.sizes[size]+=1; }
+        else{ prod.sizes[size]+=1; cart.splice(idx,1); }
+      }
+      saveRuntime(); buildGrid(); syncCartSummary(); openCart();
+    }
+
+    function removeLine(idx){
+      const line = cart[idx]; if(!line) return;
+      const prod = runtime.products.find(p=>p.id===line.productId);
+      prod.sizes[line.size] = (prod.sizes[line.size]||0) + line.qty;
+      cart.splice(idx,1);
+      saveRuntime(); buildGrid(); syncCartSummary(); openCart();
+    }
+
+    function clearCart(){
+      cart.forEach(line=>{
+        const p = runtime.products.find(x=>x.id===line.productId);
+        if(p) p.sizes[line.size] = (p.sizes[line.size]||0) + line.qty;
+      });
+      cart = [];
+      saveRuntime(); buildGrid(); syncCartSummary();
+    }
+
+    // Checkout deep links
+    document.getElementById('venmoBtn').addEventListener('click', ()=> checkout('venmo'));
+    document.getElementById('paypalBtn').addEventListener('click', ()=> checkout('paypal'));
+    document.getElementById('cashBtn').addEventListener('click', ()=> checkout('cash'));
+    function checkout(method){
+      const total = cart.reduce((a,c)=>a+c.price*c.qty,0);
+      if(total<=0) return;
+      runtime.salesLog = runtime.salesLog.map(s=> ({...s, payment: s.payment || method}));
+      saveRuntime();
+      const amount = total.toFixed(2);
+      const note = encodeURIComponent(`${settings.outletName || 'Merch'} ${new Date().toLocaleDateString()}`);
+      let href = '';
+      if(method==='venmo'){
+        const user = (settings.venmoUser || '').trim();
+        href = user ? `venmo://pay?txn=pay&recipients=${encodeURIComponent(user)}&amount=${encodeURIComponent(amount)}&note=${note}`
+                    : `venmo://pay?txn=pay&amount=${encodeURIComponent(amount)}&note=${note}`;
+      } else if(method==='paypal'){
+        const user = (settings.paypalUser || 'YOURPAYPALUSERNAME').trim();
+        href = `https://www.paypal.me/${encodeURIComponent(user)}/${encodeURIComponent(amount)}`;
+      } else if(method==='cash'){
+        cart = []; saveRuntime(); buildGrid(); syncCartSummary(); openCart(); alert('Quick Cash recorded.'); return;
+      }
+      const a = document.createElement('a'); a.href = href; a.rel='noopener'; a.style.display='none'; document.body.appendChild(a); a.click(); a.remove();
+      cart = []; saveRuntime(); buildGrid(); syncCartSummary(); openCart();
+    }
+
+    // Init
+    buildGrid(); syncCartSummary();
+  </script>
+</body>
+</html>
